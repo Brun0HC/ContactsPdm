@@ -3,6 +3,7 @@ package com.example.contactspdm.ui
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -17,106 +18,85 @@ import androidx.activity.result.ActivityResult
 import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import com.example.contactspdm.databinding.ActivityMainBinding
 import com.example.contactspdm.model.Contact
 import com.example.contactspdm.R
+import com.example.contactspdm.adapter.ContactAdapter
 
 class MainActivity : AppCompatActivity() {
 
     private val amb: ActivityMainBinding by lazy{
         ActivityMainBinding.inflate(layoutInflater)
     }
-    private lateinit var parl: ActivityResultLauncher<Intent>
 
-    // DATA SOURCE
+    // data source igual ao professor
     private val contactList: MutableList<Contact> = mutableListOf()
 
-    class ContactAdapter(context: Context, contacts: List<Contact>) : ArrayAdapter<Contact>(context, android.R.layout.simple_list_item_1, contacts) {
-
-        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-            val contact = getItem(position)
-            val view = convertView ?: LayoutInflater.from(context).inflate(android.R.layout.simple_list_item_1, parent, false)
-            view.findViewById<TextView>(android.R.id.text1).text = contact?.name
-            return view
-        }
+    // adapter ...
+    private val contactAdapter: ContactAdapter by lazy {
+        ContactAdapter(this, contactList
+        )
     }
-    // ADAPTER
-    private val contactAdapter : ContactAdapter by lazy{
-        ContactAdapter(this, contactList)
-    }
+    private lateinit var carl: ActivityResultLauncher<Intent>
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
+
         super.onCreate(savedInstanceState)
         setContentView(amb.root)
+        amb.toolbarIn.toolbar.apply {
 
-        //fillContacts()
+            subtitle = this@MainActivity.javaClass.simpleName
 
-        amb.toolbarIn.apply {
-            setSupportActionBar(this.toolbar)
+            setSupportActionBar(this)
         }
-
-        amb.contactsLv.adapter = contactAdapter
-
-        parl = registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { result ->
+        carl = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
-                val lastId = if (contactList.isNotEmpty()) {
-                    contactList.last().id
-                } else {
-                    1
+                val contact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    result.data?.getParcelableExtra("EXTRA_CONTACT", Contact::class.java)
                 }
+                else {
+                    result.data?.getParcelableExtra("EXTRA_CONTACT")
+                }
+                if (contact != null) {
 
-                result.data?.getBundleExtra("bundle")?.let {
-                    val name = it.getString("name")
-                    val address = it.getString("address")
-                    val phone = it.getString("phone")
-                    val email = it.getString("email")
-                    if (!name.isNullOrBlank() && !phone.isNullOrBlank() && !email.isNullOrBlank() && !address.isNullOrBlank()) {
-                        contactList.add(
-                            Contact(lastId + 1, name, address, phone, email)
-                        )
-                        (contactAdapter as? ArrayAdapter<Contact>)?.notifyDataSetChanged()
-                    } else {
-                        Toast.makeText(
-                            this,
-                            "Há dados obrigatórios que não foram preenchidos",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
+                    contactList.add(contact)
+                    contactAdapter.notifyDataSetChanged()
                 }
             }
         }
+        //fillContacts()
+        amb.contactsLv.adapter = contactAdapter
     }
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
 
+        menuInflater.inflate(R.menu.menu_main, menu)
+
+        return true
+    }
+    override fun onOptionsItemSelected(item: MenuItem) =
+
+        if (item.itemId == R.id.viewMi) {
+
+            Intent(this, ContactActivity::class.java).let {
+                carl.launch(it)
+            }
+            true
+        } else
+            false
 //    private fun fillContacts() {
-//        for (i in 1..50) {
+//
+//        for (i in 1..10) {
 //            contactList.add(
 //                Contact(
 //                    i,
-//                    "name $i",
-//                    "address $i",
-//                    "phone $i",
-//                    "email $i"
+//                    "Name $i",
+//                    "Address $i",
+//                    "Phone $i",
+//                    "Email $i"
 //                )
 //            )
 //        }
 //    }
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean{
-        menuInflater.inflate(R.menu.menu_main, menu)
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean{
-        return when(item.itemId){
-            R.id.viewMi -> {
-
-                Intent(this, ContactActivity::class.java).also{
-                    parl.launch(it)
-                }
-                true }
-
-            else -> {false}
-        }
-    }
 }
